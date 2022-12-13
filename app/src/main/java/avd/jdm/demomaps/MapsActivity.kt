@@ -1,20 +1,25 @@
 package avd.jdm.demomaps
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-
+import androidx.appcompat.app.AppCompatActivity
+import avd.jdm.demomaps.databinding.ActivityMapsBinding
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.MarkerOptions
-import avd.jdm.demomaps.databinding.ActivityMapsBinding
+import com.google.maps.android.clustering.ClusterManager
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityMapsBinding
+
+    private val blindwalls: List<BlindWall> by lazy {
+        BlindWallsReader(this).read()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,6 +52,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 //        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney))
 
         // stap 5.1. andere start locatie: Avans Hogeschoollaan: 51.5840579881456, 4.797372671775713
+/*
         val avansHA = LatLng(51.5840579881456, 4.797372671775713)
 
         val avansHAMarkerOptions = MarkerOptions()
@@ -57,6 +63,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         avansHAMarker?.tag = 0 // we gebruiken dit verderop
 
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(avansHA, 12f))
+*/
 
         // todo Stap 5.2. Controls op de Map toevoegen
         // Hint 1: simuleer pinch (en roteren map - view) met <Alt Gr>
@@ -134,8 +141,49 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         }
 */
 
+        // todo step 7. demo with BlindWall dataset
+        // todo: 7a show without clustered markers first
+        // todo: show effect on using: newLatLngBounds(bounds.build()
+//        addMarkers()
+        addClusterdMarkers()
 
+        // camera position depending on Clustered markers:
+        // setOnMapLoadedCallback: Sets a callback that's invoked when this map has finished rendering.
+        mMap.setOnMapLoadedCallback {
+            val bounds = LatLngBounds.builder()
+            blindwalls.forEach { blindWall ->
+                bounds.include(blindWall.latLng)
+            }
+            // todo show effect using this
+            mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds.build(), 50))
+        }
+
+        mMap.setInfoWindowAdapter(BlindWallMarkerAdapter(this))
 
 
     }
+
+    // wordt na het maken van clustered items niet meer benut.
+    private fun addMarkers() {
+        blindwalls.forEach { blindWall ->
+            val marker = mMap.addMarker(
+                MarkerOptions()
+                    .title(blindWall.name)
+                    .position(blindWall.latLng)
+            )
+            marker?.tag = blindWall
+        }
+    }
+
+    private fun addClusterdMarkers() {
+        val clusterManager = ClusterManager<BlindWall>(this, mMap)
+        clusterManager.addItems(blindwalls)
+        clusterManager.cluster()
+
+        mMap.setOnCameraIdleListener {
+            clusterManager.onCameraIdle()
+        }
+    }
+
+
 }
